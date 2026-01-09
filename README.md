@@ -1,5 +1,7 @@
 Macro Economic index
 
+僅完成基本圖表，後續功能仍須思考
+
 # 指標
 
 | 指標         | FRED Series ID |

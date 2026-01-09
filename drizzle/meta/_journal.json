@@ -15,6 +15,20 @@
       "when": 1765876912406,
       "tag": "0001_chemical_skreet",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767862041252,
+      "tag": "0002_loving_lady_ursula",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1767939939312,
+      "tag": "0003_red_mojo",
+      "breakpoints": true
     }
   ]
 }

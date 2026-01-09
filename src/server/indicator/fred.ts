@@ -52,10 +52,10 @@ export async function ingestFredSeries(
       .values({
         code: seriesId,
         name: indicatorName,
+        cName: indicatorName,
         source: "FRED",
-        category: "category_unknown",
-        frequency: "frequency_unknown",
-        unit: "unit_unknown",
+        category: "",
+        unit: "",
       })
       .returning();
 
@@ -64,7 +64,7 @@ export async function ingestFredSeries(
 
   // 2. 找最後一筆資料日期
   const lastValue = await db.query.indicatorValues.findFirst({
-    where: eq(indicatorValues.indicatorId, indicator.id),
+    where: eq(indicatorValues.indicator_id, indicator.id),
     orderBy: desc(indicatorValues.date),
   });
 
@@ -79,7 +79,7 @@ export async function ingestFredSeries(
   const rows = observations
     .filter((o) => o.value !== ".")
     .map((o) => ({
-      indicatorId: indicator!.id,
+      indicator_id: indicator!.id,
       date: o.date,
       value: o.value,
     }));

@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { nitro } from 'nitro/vite'
 
 export default defineConfig({
   server: {
@@ -17,5 +18,8 @@ export default defineConfig({
     }),
     viteReact(),
     tailwindcss(),
+    nitro({
+      preset: 'node-server', // 強制指定為 Node Server
+    }),
   ],
 });

@@ -1,4 +1,3 @@
-import { time } from "console";
 import {
   date,
   integer,
@@ -6,9 +5,11 @@ import {
   pgEnum,
   pgTable,
   real,
+  text,
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
+import { indicatorCategories } from "./indicatorCategories";
 
 export const frequencyEnum = pgEnum("frequency", ["Y", "M", "D"]);
 
@@ -18,10 +19,18 @@ export const indicators = pgTable("indicators", {
   name: varchar({ length: 255 }).notNull(),
   cName: varchar({ length: 255 }).notNull(),
   category: varchar({ length: 255 }).notNull(),
+  category_id: integer("category_id").references(() => indicatorCategories.id, {
+    onDelete: "set null",
+    onUpdate: "no action",
+  }),
   source: varchar({ length: 255 }).notNull(),
   unit: varchar({ length: 255 }).notNull(),
+  meaning: text().default(""),
+  calculation: text().default(""),
+  analystUsage: text().default(""),
   createdAt: timestamp().defaultNow(),
 });
+
 
 export const indicatorValues = pgTable("indicatorValues", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),

@@ -3,6 +3,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { DefaultCatchBoundary } from "@/components/DefaultCatchBoundary";
 import { NotFound } from "@/components/NotFound";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import appCss from "@/styles/app.css?url";
 import { seo } from "@/utils/seo";
 import {
@@ -71,13 +73,27 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <SidebarProvider>
-          <AppSidebar />
-          <main>
-            <SidebarTrigger />
-            {children}
-          </main>
-        </SidebarProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SidebarProvider>
+            <AppSidebar />
+            <main className="flex-1 flex flex-col h-screen overflow-hidden">
+              <header className="flex h-14 items-center gap-2 border-b bg-background px-4 shrink-0 justify-between">
+                <div className="flex items-center gap-2">
+                  <SidebarTrigger />
+                </div>
+                <ThemeToggle />
+              </header>
+              <div className="flex-1 overflow-auto">
+                {children}
+              </div>
+            </main>
+          </SidebarProvider>
+        </ThemeProvider>
         <TanStackRouterDevtools position="bottom-right" />
         <Scripts />
       </body>

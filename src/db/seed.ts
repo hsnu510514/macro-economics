@@ -1,6 +1,7 @@
 import { fetchFredSeries, ingestFredSeries } from "@/server/indicator/fred";
 import { db } from ".";
 import { indicators, indicatorValues } from "../db/schema";
+import { sql } from "drizzle-orm";
 type indicatorType = typeof indicators.$inferInsert;
 
 const indicatorArray: indicatorType[] = [
@@ -87,6 +88,8 @@ const indicatorArray: indicatorType[] = [
 ];
 
 async function seed() {
+  console.log("🌱 Starting database seed...");
+  
   // fetch data and populate the database
   const createdIndicators = await db
     .insert(indicators)
@@ -94,32 +97,56 @@ async function seed() {
     .onConflictDoUpdate({
       target: indicators.code,
       set: {
-        name: indicators.name,
-        cName: indicators.cName,
-        category: indicators.category,
-        source: indicators.source,
-        unit: indicators.unit,
+        name: sql`EXCLUDED.name`,
+        cName: sql`EXCLUDED."cName"`,
+        category: sql`EXCLUDED.category`,
+        source: sql`EXCLUDED.source`,
+        unit: sql`EXCLUDED.unit`,
       },
     })
     .returning();
 
-  createdIndicators.forEach(async (item) => {
-    const observations = await fetchFredSeries(item.code);
-    const rows = observations
-      .filter((o) => o.value !== ".")
-      .map((o) => ({
-        indicator_id: item!.id,
-        date: o.date,
-        value: o.value,
-      }));
+  console.log(`📍 Processed ${createdIndicators.length} indicator metadata records.`);
 
-    if (!rows.length) return { inserted: 0 };
+  for (const item of createdIndicators) {
+    try {
+      console.log(` period 🔍 Fetching data for ${item.code}...`);
+      const observations = await fetchFredSeries(item.code);
+      
+      const rows = observations
+        .filter((o) => o.value !== "." )
+        .map((o) => ({
+          indicator_id: item.id,
+          date: o.date,
+          value: o.value,
+        }));
 
-    // 5. 批次寫入
-    await db.insert(indicatorValues).values(rows);
+      if (rows.length > 0) {
+        // Insert in chunks of 500 to avoid large payload errors
+        const chunkSize = 500;
+        for (let i = 0; i < rows.length; i += chunkSize) {
+          const chunk = rows.slice(i, i + chunkSize);
+          await db.insert(indicatorValues)
+            .values(chunk)
+            .onConflictDoNothing();
+        }
+        console.log(` ✅ Inserted ${rows.length} records for ${item.code}`);
+      } else {
+        console.log(` ⚠️ No new records found for ${item.code}`);
+      }
+    } catch (error) {
+      console.error(` ❌ Failed to sync ${item.code}:`, error);
+    }
+  }
 
-    return { inserted: rows.length };
-  });
+  console.log("✨ Seed complete!");
 }
 
-seed();
+seed()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((err) => {
+    console.error("💥 Seed failed:", err);
+    process.exit(1);
+  });
