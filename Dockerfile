@@ -25,6 +25,9 @@ RUN pnpm run build
 FROM node:22-slim AS runner
 WORKDIR /app
 
+# Prefer IPv4 to avoid timeout issues on some VPS/Docker setups
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
+
 # Install pnpm and corepack
 RUN corepack enable
 

@@ -14,7 +14,7 @@ export interface FredObservation {
   value: string;
 }
 
-export async function fetchFredSeries(seriesId: string, startDate?: string) {
+export async function fetchFredSeries(seriesId: string, startDate?: string, retries = 3) {
   const params = new URLSearchParams({
     series_id: seriesId,
     api_key: process.env.FRED_API_KEY!,
@@ -25,16 +25,42 @@ export async function fetchFredSeries(seriesId: string, startDate?: string) {
     params.set("observation_start", startDate);
   }
 
-  const res = await fetch(
-    `https://api.stlouisfed.org/fred/series/observations?${params.toString()}`
-  );
+  const url = `https://api.stlouisfed.org/fred/series/observations?${params.toString()}`;
 
-  if (!res.ok) {
-    throw new Error(`FRED API error: ${res.status}`);
+  for (let i = 0; i < retries; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`FRED API error: ${res.status} ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      return json.observations as FredObservation[];
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      
+      const isLastAttempt = i === retries - 1;
+      const isTimeout = err.name === "AbortError";
+      
+      if (isLastAttempt) {
+        console.error(`❌ Final attempt failed for ${seriesId}: ${isTimeout ? "Timeout" : err.message}`);
+        throw err;
+      }
+
+      const delay = Math.pow(2, i) * 1000;
+      console.warn(
+        `⚠️ Attempt ${i + 1} failed for ${seriesId} (${isTimeout ? "Timeout" : err.message}). Retrying in ${delay}ms...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 
-  const json = await res.json();
-  return json.observations as FredObservation[];
+  return [] as FredObservation[];
 }
 
 export async function ingestFredSeries(

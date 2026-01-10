@@ -18,6 +18,7 @@ export async function syncIndicatorData(
   indicatorId: number,
   seriesId: string
 ): Promise<{ synced: number; latestDate: string | null }> {
+  console.log(`   🔍 [${seriesId}] Checking local database for latest date...`);
   // 1. Get the latest date we have
   const lastValue = await db.query.indicatorValues.findFirst({
     where: eq(indicatorValues.indicator_id, indicatorId),
@@ -30,12 +31,22 @@ export async function syncIndicatorData(
     const lastDate = new Date(lastValue.date);
     lastDate.setDate(lastDate.getDate() + 1);
     startDate = lastDate.toISOString().slice(0, 10);
+    console.log(`   📅 [${seriesId}] Last record found: ${lastValue.date}. Fetching from: ${startDate}`);
+  } else {
+    console.log(`   📅 [${seriesId}] No existing records found. Fetching full history.`);
   }
 
   // 2. Fetch new data from FRED
+  console.log(`   🌐 [${seriesId}] Requesting data from FRED API...`);
   const observations = await fetchFredSeries(seriesId, startDate);
+  console.log(`   ✅ [${seriesId}] Received ${observations.length} observations from FRED.`);
+
+  if (observations.length === 0) {
+    return { synced: 0, latestDate: lastValue?.date ?? null };
+  }
 
   // 3. Get existing dates to prevent duplicates
+  console.log(`   🗄️ [${seriesId}] Checking for potential duplicates...`);
   const existingValues = await db.query.indicatorValues.findMany({
     where: eq(indicatorValues.indicator_id, indicatorId),
     columns: { date: true },
@@ -51,12 +62,16 @@ export async function syncIndicatorData(
       value: o.value,
     }));
 
+  console.log(`   📥 [${seriesId}] Prepared ${newRows.length} new records (filtered out ${observations.length - newRows.length} existing/null values).`);
+
   // 5. Insert new data
   if (newRows.length > 0) {
+    console.log(`   💾 [${seriesId}] Saving to database...`);
     await db.insert(indicatorValues).values(newRows);
+    console.log(`   ✨ [${seriesId}] Database updated successfully.`);
   }
 
-  const latestDate = newRows.length > 0 ? newRows[newRows.length - 1].date : null;
+  const latestDate = newRows.length > 0 ? newRows[newRows.length - 1].date : (lastValue?.date ?? null);
 
   return { synced: newRows.length, latestDate };
 }
@@ -133,14 +148,17 @@ export async function syncAllIndicators(): Promise<SyncResult[]> {
   const results: SyncResult[] = [];
 
   for (const indicator of allIndicators) {
+    console.log(`\n▶️ Starting sync for: ${indicator.name} (${indicator.code})`);
     try {
       const { synced, latestDate } = await syncIndicatorData(
         indicator.id,
         indicator.code
       );
 
+      console.log(`   📊 Updating metrics for ${indicator.code}...`);
       // Update metrics after syncing
       await updateIndicatorMetrics(indicator.id);
+      console.log(`   ✅ Metrics updated.`);
 
       const result: SyncResult = {
         code: indicator.code,
