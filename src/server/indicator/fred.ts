@@ -14,15 +14,26 @@ export interface FredObservation {
   value: string;
 }
 
-export async function fetchFredSeries(seriesId: string, startDate?: string, retries = 3) {
+export async function fetchFredSeries(
+  series_id: string,
+  observation_start?: string,
+  retries = 3
+) {
+  const apiKey = process.env.FRED_API_KEY;
+
+  if (!apiKey) {
+    console.error("❌ FRED_API_KEY is not defined in environment variables.");
+    throw new Error("FRED_API_KEY is missing");
+  }
+
   const params = new URLSearchParams({
-    series_id: seriesId,
-    api_key: process.env.FRED_API_KEY!,
+    series_id,
+    api_key: apiKey,
     file_type: "json",
   });
 
-  if (startDate) {
-    params.set("observation_start", startDate);
+  if (observation_start) {
+    params.set("observation_start", observation_start);
   }
 
   const url = `https://api.stlouisfed.org/fred/series/observations?${params.toString()}`;
@@ -32,29 +43,45 @@ export async function fetchFredSeries(seriesId: string, startDate?: string, retr
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      console.log(`   🌐 [${series_id}] Fetching: ${url.replace(apiKey, "REDACTED")}`);
+      
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "MacroView/1.0 (https://github.com/your-repo; contact@example.com)",
+          "Accept": "application/json",
+        },
+      });
+      
       clearTimeout(timeoutId);
 
       if (!res.ok) {
-        throw new Error(`FRED API error: ${res.status} ${res.statusText}`);
+        const text = await res.text();
+        throw new Error(`FRED API error: ${res.status} ${res.statusText} - ${text.slice(0, 100)}`);
       }
 
       const json = await res.json();
       return json.observations as FredObservation[];
     } catch (err: any) {
       clearTimeout(timeoutId);
-      
+
       const isLastAttempt = i === retries - 1;
       const isTimeout = err.name === "AbortError";
-      
+
       if (isLastAttempt) {
-        console.error(`❌ Final attempt failed for ${seriesId}: ${isTimeout ? "Timeout" : err.message}`);
+        console.error(
+          `❌ Final attempt failed for ${series_id}: ${
+            isTimeout ? "Timeout" : err.message
+          }`
+        );
         throw err;
       }
 
       const delay = Math.pow(2, i) * 1000;
       console.warn(
-        `⚠️ Attempt ${i + 1} failed for ${seriesId} (${isTimeout ? "Timeout" : err.message}). Retrying in ${delay}ms...`
+        `⚠️ Attempt ${i + 1} failed for ${series_id} (${
+          isTimeout ? "Timeout" : err.message
+        }). Retrying in ${delay}ms...`
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }

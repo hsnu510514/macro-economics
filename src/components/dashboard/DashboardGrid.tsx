@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   DndContext,
   closestCenter,
@@ -7,7 +8,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -26,6 +30,8 @@ interface DashboardGridProps {
 }
 
 export function DashboardGrid({ indicators, onReorder }: DashboardGridProps) {
+  const [activeId, setActiveId] = useState<number | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -36,6 +42,10 @@ export function DashboardGrid({ indicators, onReorder }: DashboardGridProps) {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as number);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -48,13 +58,21 @@ export function DashboardGrid({ indicators, onReorder }: DashboardGridProps) {
       const newOrder = newIndicators.map((i) => i.id);
       onReorder(newOrder);
     }
+
+    setActiveId(null);
   };
+
+  const activeIndicator = activeId 
+    ? indicators.find((i) => i.id === activeId) 
+    : null;
 
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
     >
       <SortableContext
         items={indicators.map((i) => i.id)}
@@ -78,6 +96,34 @@ export function DashboardGrid({ indicators, onReorder }: DashboardGridProps) {
           ))}
         </div>
       </SortableContext>
+
+      <DragOverlay
+        dropAnimation={{
+          sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+              active: {
+                opacity: "0.4",
+              },
+            },
+          }),
+        }}
+      >
+        {activeIndicator ? (
+          <IndicatorCard
+            id={activeIndicator.id}
+            code={activeIndicator.code}
+            name={activeIndicator.name}
+            cName={activeIndicator.cName}
+            unit={activeIndicator.unit}
+            latestValue={activeIndicator.latestValue}
+            latestDate={activeIndicator.latestDate}
+            yoy={activeIndicator.yoy}
+            mom={activeIndicator.mom}
+            chartData={activeIndicator.chartData}
+            isOverlay
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

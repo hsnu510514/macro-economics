@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { createChart, ColorType, LineSeries, type IChartApi } from "lightweight-charts";
+import { useEffect, useRef, memo } from "react";
+import { createChart, ColorType, LineSeries, type IChartApi, type ISeriesApi } from "lightweight-charts";
 
 /**
  * Attribution Notice:
@@ -25,7 +25,7 @@ interface IndicatorChartProps {
   areaBottomColor?: string;
 }
 
-export function IndicatorChart({
+export const IndicatorChart = memo(function IndicatorChart({
   data,
   height = 100,
   width,
@@ -36,7 +36,9 @@ export function IndicatorChart({
 }: IndicatorChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
+  // Initialize chart
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -69,27 +71,16 @@ export function IndicatorChart({
       },
     });
 
-    chartRef.current = chart;
-
-    const areaSeries = chart.addSeries(LineSeries, {
+    const series = chart.addSeries(LineSeries, {
       color: lineColor,
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: fullSize,
     });
 
-    // Convert data to chart format
-    const chartData = data.map((d) => ({
-      time: d.time,
-      value: d.value,
-    }));
+    chartRef.current = chart;
+    seriesRef.current = series;
 
-    areaSeries.setData(chartData as any);
-
-    // Fit content
-    chart.timeScale().fitContent();
-
-    // Handle resize
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -103,14 +94,28 @@ export function IndicatorChart({
     return () => {
       window.removeEventListener("resize", handleResize);
       chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, [data, height, width, fullSize, lineColor, areaTopColor, areaBottomColor]);
+  }, [height, width, fullSize, lineColor]); // Only re-init if layout props change
+
+  // Update data
+  useEffect(() => {
+    if (seriesRef.current && data) {
+      const chartData = data.map((d) => ({
+        time: d.time,
+        value: d.value,
+      }));
+      seriesRef.current.setData(chartData as any);
+      chartRef.current?.timeScale().fitContent();
+    }
+  }, [data]);
 
   return (
     <div
       ref={chartContainerRef}
-      className={fullSize ? "w-full" : "w-full"}
+      className="w-full"
       style={{ height: fullSize ? 400 : height }}
     />
   );
-}
+});

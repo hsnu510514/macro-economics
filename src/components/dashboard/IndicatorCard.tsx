@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, TrendingUp, TrendingDown } from "lucide-react";
@@ -17,9 +18,10 @@ interface IndicatorCardProps {
   yoy: number | null;
   mom: number | null;
   chartData?: { time: string; value: number }[];
+  isOverlay?: boolean;
 }
 
-export function IndicatorCard({
+export const IndicatorCard = memo(function IndicatorCard({
   id,
   code,
   name,
@@ -30,6 +32,7 @@ export function IndicatorCard({
   yoy,
   mom,
   chartData = [],
+  isOverlay = false,
 }: IndicatorCardProps) {
   const {
     attributes,
@@ -38,12 +41,13 @@ export function IndicatorCard({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({ id, disabled: isOverlay });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isOverlay ? 100 : undefined,
   };
 
   const formatValue = (value: string | null) => {
@@ -62,13 +66,17 @@ export function IndicatorCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="group relative bg-card border border-border/50 rounded-xl p-5 hover:border-zinc-400 dark:hover:border-zinc-700 transition-all duration-200 shadow-sm hover:shadow-md"
+      className={`group relative bg-card border border-border/50 rounded-xl p-5 shadow-sm transition-all duration-200 ${
+        isOverlay ? "shadow-xl border-zinc-400 dark:border-zinc-700 cursor-grabbing scale-105" : "hover:border-zinc-400 dark:hover:border-zinc-700 hover:shadow-md"
+      }`}
     >
       {/* Drag Handle - Visible on Hover */}
       <button
         {...attributes}
         {...listeners}
-        className="absolute top-3 right-3 text-muted-foreground/30 hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1"
+        className={`absolute top-3 right-3 text-muted-foreground/30 hover:text-foreground transition-opacity cursor-grab active:cursor-grabbing p-1 ${
+          isOverlay ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
       >
         <GripVertical className="w-4 h-4" />
       </button>
@@ -141,4 +149,4 @@ export function IndicatorCard({
       </div>
     </div>
   );
-}
+});
