@@ -67,7 +67,9 @@ export async function syncIndicatorData(
   // 5. Insert new data
   if (newRows.length > 0) {
     console.log(`   💾 [${seriesId}] Saving to database...`);
-    await db.insert(indicatorValues).values(newRows);
+    await db.insert(indicatorValues)
+      .values(newRows)
+      .onConflictDoNothing();
     console.log(`   ✨ [${seriesId}] Database updated successfully.`);
   }
 
